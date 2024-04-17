@@ -1,9 +1,14 @@
 from unittest import TestCase, main
-from config import Config
-from app import create_app
-from app.extensions import db
 import os
+import sys
 from tempfile import TemporaryDirectory
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from app import create_app
+from app.config import Config
+from app.extensions import db
 
 
 class TestServer(TestCase):

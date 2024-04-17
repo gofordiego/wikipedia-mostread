@@ -1,4 +1,5 @@
 from app import create_app
+from app.config import Config
 from app.extensions import db
 from app.models import SeedValue
 
@@ -21,7 +22,7 @@ def seed_data():
 
 
 if __name__ == "__main__":
-    app = create_app()
+    app = create_app(Config())
     with app.app_context():
         db.create_all()
         seed_data()

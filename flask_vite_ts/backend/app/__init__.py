@@ -1,12 +1,13 @@
-from config import Config
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+from app.config import Config
 from app.extensions import db
 
 
-def create_app(config_class=Config):
+def create_app(config: Config):
     app = Flask(__name__)
-    app.config.from_object(config_class)
+    app.config.from_object(config)
 
     # Flask SQLAlchemy: https://flask-sqlalchemy.palletsprojects.com/en/3.1.x/quickstart/#initialize-the-extension
     db.init_app(app)
