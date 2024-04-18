@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from shared.asyncio_rate_limiter import AsyncIORateLimiter
 
 
-class TaskUtilsTests(IsolatedAsyncioTestCase):
+class AsyncIORateLimiterTests(IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.aio_rate_limiter = AsyncIORateLimiter()
@@ -25,9 +25,9 @@ class TaskUtilsTests(IsolatedAsyncioTestCase):
 
             Case Example:
             ```
+                max_tasks_per_second=2
                 run_rate_limited_tasks(
                     coros=[self._delay(1), self._delay(2), self._delay(3)]
-                    max_tasks_per_sec=2
                 )
 
                 expected_results=[1, 2, 3]
@@ -80,13 +80,13 @@ class TaskUtilsTests(IsolatedAsyncioTestCase):
         for c in cases:
             loop = asyncio.get_running_loop()
             start = loop.time()
-            results = await self.aio_rate_limiter.run_rate_limited_tasks(
-                coros=c.coros, max_tasks_per_sec=c.max_tasks_per_sec
-            )
+            self.aio_rate_limiter.overwrite_max_tasks_per_second(c.max_tasks_per_sec)
+            results = await self.aio_rate_limiter.run_rate_limited_tasks(coros=c.coros)
             total_time = loop.time() - start
             self.assertEqual(
                 results, c.expected_results, f"Test results for {c.description}"
             )
+            # Asserting almost equal expected and got total run time.
             self.assertAlmostEqual(
                 total_time,
                 c.expected_time,
@@ -110,9 +110,10 @@ class TaskUtilsTests(IsolatedAsyncioTestCase):
 
         for c in cases:
             with self.assertRaises(c.expected_exception):
-                await self.aio_rate_limiter.run_rate_limited_tasks(
-                    coros=c.coros, max_tasks_per_sec=c.max_tasks_per_sec
+                self.aio_rate_limiter.overwrite_max_tasks_per_second(
+                    c.max_tasks_per_sec
                 )
+                await self.aio_rate_limiter.run_rate_limited_tasks(coros=c.coros)
 
     async def _delay(self, secs: int, raise_exception=False) -> int:
         """Delays `secs` seconds in returning the same argument."""
