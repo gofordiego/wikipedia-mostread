@@ -8,3 +8,7 @@ class Config:
         "DATABASE_URI"
     ) or "sqlite:///" + os.path.join(basedir, "app.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Safeguard timeout to return a meaningful error message if an async function
+    # is taking longer to complete before the server closes the connection.
+    SERVER_TIMEOUT_SECS = 60

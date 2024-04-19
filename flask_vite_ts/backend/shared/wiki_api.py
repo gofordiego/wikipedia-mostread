@@ -168,8 +168,8 @@ class WikiAPI:
         Raises:
             WikipediaContentProcessingError: If there's a JSON decoding or content integrity errors in `featured_content_responses`.
         """
-        # Struture: {article_url: {total_views, view_history: [date, views]}, ...}
-        articles_stats: dict[str, dict[str, any]] = {}
+        # Struture: {pageid: {page, total_views, view_history: [date, views]}, ...}
+        articles_stats: dict[int, dict[str, any]] = {}
 
         for response in featured_content_responses:
             try:
@@ -188,21 +188,22 @@ class WikiAPI:
                     json_content["mostread"]["date"], "%Y-%m-%dZ"
                 )
                 for article in json_content["mostread"]["articles"]:
-                    article_url = article["content_urls"]["desktop"]["page"]
+                    page_id = int(article["pageid"])
                     views = int(article["views"])
 
                     # Prepare new article stats slot for aggregation.
-                    if article_url not in articles_stats:
-                        articles_stats[article_url] = {
+                    if page_id not in articles_stats:
+                        articles_stats[page_id] = {
                             # We could add more article details like "description" or "thumbnail".
+                            "page": article["content_urls"]["desktop"]["page"],
                             "total_views": 0,
                             "view_history": [],
                         }
 
-                    articles_stats[article_url]["total_views"] += views
+                    articles_stats[page_id]["total_views"] += views
 
                     # Aggregate view history using ISO 8601 Date format.
-                    articles_stats[article_url]["view_history"].append(
+                    articles_stats[page_id]["view_history"].append(
                         {
                             "date": views_date.strftime("%Y-%m-%d"),
                             "views": views,
@@ -224,7 +225,7 @@ class WikiAPI:
                 raise WikipediaContentProcessingError
 
         # Extract and sort article URLs by total views in descending order.
-        ranked_urls = [
+        ranked_pageids = [
             item[0]
             for item in sorted(
                 articles_stats.items(),
@@ -236,7 +237,10 @@ class WikiAPI:
         # Build a sorted array of article_stats objects:
         # e.g. [{page, total_views, view_history}, ...]
         # TODO: Maybe establish a total limit like max 1000 articles to return.
-        return [{**{"page": url}, **articles_stats[url]} for url in ranked_urls]
+        return [
+            {**{"pageid": page_id}, **articles_stats[page_id]}
+            for page_id in ranked_pageids
+        ]
 
     def _build_feed_api_featured_content_urls(
         self, lang_code: str, start_date: datetime, end_date: datetime
