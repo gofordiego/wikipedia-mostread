@@ -1,5 +1,6 @@
 from collections import namedtuple
 from datetime import datetime, timedelta
+import json
 import logging
 import os
 import sys
@@ -12,10 +13,36 @@ import shared.wiki_api as wiki_api
 from tests.shared.expected_results_wiki_api import *
 
 
+class TestCache(wiki_api.WikiCache):
+    """This is a subclass of WikiCache used to store WikiAPI responses in a dictionary
+    to ease testing validation.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._cache: dict[str, str] = {}
+
+    def get(self, url: str) -> wiki_api.WikiAPIResponse:
+        cached_response = self._cache.get(url)
+        if cached_response:
+            return wiki_api.WikiAPIResponse(url, True, cached_response, None)
+        return None
+
+    def put(self, wiki_resp: wiki_api.WikiAPIResponse):
+        assert (
+            wiki_resp.url
+            and wiki_resp.status_ok
+            and wiki_resp.text
+            and not wiki_resp.exception
+        )
+        self._cache[wiki_resp.url] = wiki_resp.text
+
+
 class WikiAPITests(IsolatedAsyncioTestCase):
 
     def setUp(self):
-        self.wiki_api = wiki_api.WikiAPI()
+        self.test_cache = TestCache()
+        self.wiki_api = wiki_api.WikiAPI(optional_cache=self.test_cache)
 
     async def test_fetch_most_read_articles_success(self):
         """Test `fetch_most_read_articles` success."""
@@ -53,6 +80,41 @@ class WikiAPITests(IsolatedAsyncioTestCase):
             )
             self.assertEqual(results, c.expected_results, "Test returned articles")
 
+        # Cache validation
+        expected_cache_keys = set(
+            [
+                "https://es.wikipedia.org/api/rest_v1/feed/featured/2024/02/20",
+                "https://it.wikipedia.org/api/rest_v1/feed/featured/2024/02/20",
+                "https://it.wikipedia.org/api/rest_v1/feed/featured/2024/02/21",
+            ]
+        )
+        # 🚨 Note that https://en.wikipedia.org/api/rest_v1/feed/featured/TOMORROW never contains
+        # the mostread articles object, because we cannot travel to future to know what people will read,
+        # therefore we will not cache yet that response.
+        self.assertEqual(set(self.test_cache._cache.keys()), expected_cache_keys)
+
+        # Cache content
+        raw_response = self.test_cache._cache.get(
+            "https://es.wikipedia.org/api/rest_v1/feed/featured/2024/02/20", ""
+        )
+        self.assertEqual(json.loads(raw_response)["mostread"]["date"], "2024-02-19Z")
+
+        # Test results after cached response hit.
+        results = await self.wiki_api.fetch_most_read_articles(
+            lang_code=cases[0].lang_code, start=cases[0].start, end=cases[0].end
+        )
+        self.assertEqual(
+            results, cases[0].expected_results, "Test returned articles from cache"
+        )
+
+    async def test_no_cache_fetch_most_read_articles_success(self):
+        """Test no cache layer `fetch_most_read_articles` success."""
+        no_cache_wiki_api = wiki_api.WikiAPI()
+        results = await no_cache_wiki_api.fetch_most_read_articles(
+            lang_code="es", start="2024-02-19", end="2024-02-19"
+        )
+        self.assertEqual(results, EXPECTED_MOST_READ_ES_20240219)
+
     async def test_fetch_most_read_articles_raised_exceptions(self):
         """Test `fetch_most_read_articles` raised exceptions."""
 
@@ -76,6 +138,9 @@ class WikiAPITests(IsolatedAsyncioTestCase):
                 )
             # Check also the base module error is reported correctly.
             self.assertIsInstance(cm.exception, wiki_api.WikiAPIError)
+
+        # Validate cache remained empty
+        self.assertFalse(len(self.test_cache._cache))
 
     async def test_fetch_most_read_articles_response_errors(self):
         """Test `fetch_most_read_articles` response errors."""
@@ -123,6 +188,9 @@ class WikiAPITests(IsolatedAsyncioTestCase):
                 ],
             }
             self.assertEqual(results, expected_results, "Test returned errors")
+
+        # Validate cache remained empty
+        self.assertFalse(len(self.test_cache._cache))
 
 
 if __name__ == "__main__":

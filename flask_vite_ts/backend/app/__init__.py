@@ -1,14 +1,51 @@
 import asyncio
+from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from typing import Coroutine
 
 from app.config import Config
 from app.extensions import db
-from shared.wiki_api import WikiAPI
+from app.models import CachedResponse
+from shared.wiki_api import WikiAPI, WikiCache, WikiAPIResponse
 
 
-def create_app(config: Config):
+class ResponseCache(WikiCache):
+    """This is a subclass of WikiCache used to store WikiAPI responses in a SQLite db.
+
+    Note:
+        `CachedResponse` model stores text responses as a zlib compressed BLOB value.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def get(self, url: str) -> WikiAPIResponse:
+        cached_resp = db.session.get(CachedResponse, url)
+        if cached_resp:
+            return WikiAPIResponse(
+                cached_resp.url, True, cached_resp.text_response, None
+            )
+        return None
+
+    def put(self, wiki_resp: WikiAPIResponse):
+        # No point in storing erroneous or empty responses.
+        if wiki_resp.exception or not wiki_resp.status_ok or not len(wiki_resp.text):
+            return
+
+        # Insert or replace cached_resp.
+        cached_resp = CachedResponse(
+            url=wiki_resp.url,
+            text_response=wiki_resp.text,
+            created_at=datetime.now(),
+        )
+        db.session.merge(cached_resp)
+        db.session.commit()
+
+
+def create_app(config: Config) -> Flask:
+    """This functions prepares the Flask app environment and returns it."""
+
     app = Flask(__name__)
     app.config.from_object(config)
 
@@ -16,9 +53,10 @@ def create_app(config: Config):
     db.init_app(app)
 
     # Cross-origin resource sharing
-    CORS(app, expose_headers=["X-Total-Count"])
+    CORS(app)
 
-    wiki_api = WikiAPI()
+    # Wiki API client with caching and rate limiting.
+    wiki_api = WikiAPI(optional_cache=ResponseCache())
 
     @app.route("/")
     def home():
@@ -34,7 +72,7 @@ def create_app(config: Config):
         end = request.args.get("end", "")
 
         result = asyncio.run(
-            _run_timed_task(
+            run_timed_task(
                 coro=wiki_api.fetch_most_read_articles(lang_code, start, end),
                 timeout=app.config["SERVER_TIMEOUT_SECS"],
             )
@@ -43,27 +81,11 @@ def create_app(config: Config):
         status_code = 200 if not "request_error" in result else 400
         return jsonify(result), status_code
 
-    @app.route("/test_timeout")
-    def test_timeout():
-        timeout_seconds = 1
-
-        async def delay(seconds: int):
-            await asyncio.sleep(seconds)
-
-        result = asyncio.run(
-            _run_timed_task(
-                coro=delay(timeout_seconds + 1),
-                timeout=timeout_seconds,
-            )
-        )
-
-        return jsonify(result)
-
     return app
 
 
-async def _run_timed_task(coro: Coroutine, timeout: int) -> dict[str, any]:
-    """"""
+async def run_timed_task(coro: Coroutine, timeout: int) -> dict[str, any]:
+    """This function stops running `coro` after `timeout` and reports any error message."""
     try:
         async with asyncio.timeout(timeout):
             return await coro
