@@ -46,12 +46,13 @@ class TestApp(TestCase):
 
     # MARK: - Endpoint Tests
 
-    def test_hello(self):
+    def test_home(self):
+        expected_response = """
+            Example query:
+                <a href="/most_read_articles?lang_code=en&start=2024-02-28&end=2024-02-28">/most_read_articles?lang_code=en&start=2024-02-28&end=2024-02-28</a>
+        """
         response = self.client.get("/")
-        self.assertEqual(response.json, {"data": "hello world"})
-
-        response = self.client.get("/?name=diego")
-        self.assertEqual(response.json, {"data": "hello diego"})
+        self.assertEqual(response.text.strip(), expected_response.strip())
 
     def test_most_read_articles_success(self):
         test_cached_url = (

@@ -60,10 +60,13 @@ def create_app(config: Config) -> Flask:
 
     @app.route("/")
     def home():
-        name = request.args.get("name", "world")
-        result = {"data": f"hello {name}"}
-        status_code = 200
-        return jsonify(result), status_code
+        example_query = (
+            "/most_read_articles?lang_code=en&start=2024-02-28&end=2024-02-28"
+        )
+        return f"""
+            Example query:
+                <a href="{example_query}">{example_query}</a>
+        """
 
     @app.route("/most_read_articles")
     def most_read_articles():
