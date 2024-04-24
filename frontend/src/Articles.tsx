@@ -3,15 +3,6 @@ import BackendAPI from "./backend-api"
 import { useAsyncData } from './useAsyncData'
 
 
-export type ArticlesParams = {
-    backendHost: string;
-    languageCode: string;
-    startDate: string;
-    endDate: string;
-    lastFetchTime: number;  // Used to allow component refresh for the URI parameters.
-};
-
-
 // MostReadArticlesResults types
 
 type ArticleViewHistory = {
@@ -26,40 +17,55 @@ type MostReadArticleData = {
     view_history: ArticleViewHistory[];
 };
 
-type MostReadArticlesError = {
+type WikiAPIError = {
     url: string;
     message: number;
 };
 
 type MostReadArticlesResults = {
     data?: MostReadArticleData[];
-    errors?: MostReadArticlesError[];
+    errors?: WikiAPIError[];
     request_error?: string;
 };
 
 
-// ArticlesFetchError
+// FetchError
 
-enum ArticlesResponseError {
+enum FetchErrorType {
     URL,  // Malformed URL
     Response,  // Non-OK fetch response
     Request,  // Invalid API params (MostReadArticlesResponse.request_error)
 }
 
-function computeArticlesResponseError(url: string | undefined, responseError: string, results: MostReadArticlesResults): ArticlesResponseError | null {
+type FetchError = {
+    errorType: FetchErrorType,
+    message: string,
+};
+
+function computeFetchErrorType(url: string | undefined, responseError: string, results: MostReadArticlesResults): FetchError | null {
+    let errorType: FetchErrorType | null = null
+    let message = ""
     if (url === undefined) {
-        return ArticlesResponseError.URL;
+        errorType = FetchErrorType.URL;
+        message = "Invalid Backend API Server"
     } else if (results.request_error) {
-        return ArticlesResponseError.Request;
+        errorType = FetchErrorType.Request;
+        message = results.request_error
     } else if (responseError) {
-        return ArticlesResponseError.Response;
-    } else {
-        return null
+        errorType = FetchErrorType.Response;
+        message = responseError
     }
+    return errorType !== null ? { errorType, message } : null
 }
 
 
-const numberFormatter = new Intl.NumberFormat();
+export type ArticlesParams = {
+    backendHost: string;
+    languageCode: string;
+    startDate: string;
+    endDate: string;
+    lastFetchTime: number;  // Used to allow component refresh for the URI parameters.
+};
 
 
 export function Articles({ params, onRetryBackendHost }: {
@@ -72,101 +78,15 @@ export function Articles({ params, onRetryBackendHost }: {
         end: params.endDate
     });
 
-    const emptyResults: MostReadArticlesResults = { data: [], errors: [] }
-    const [results, responseError, isLoading] = useAsyncData(url ?? '', emptyResults, params.lastFetchTime);
+    const initialResults: MostReadArticlesResults = { data: [], errors: [] }
 
-    const error = computeArticlesResponseError(url, responseError, results);
+    const [results, responseError, isLoading] = useAsyncData(url ?? '', initialResults, params.lastFetchTime);
 
-    const backendHostErrorMessage = (
-        <span>
-            Invalid Backend API Server
+    const error = computeFetchErrorType(url, responseError, results);
 
-            <button className="ms-3 btn btn-secondary" onClick={onRetryBackendHost}>
-                Retry with default server
-            </button>
-        </span>
-    );
-
-    const errorMessage = (
-        <div className="my-1 fs-5">
-            <strong>Error: </strong>
-
-            {error == ArticlesResponseError.URL && backendHostErrorMessage}
-
-            {error == ArticlesResponseError.Response && responseError}
-
-            {error == ArticlesResponseError.Request && results.request_error}
-        </div>
-    );
-
-    const articlesRows = results.data?.map((article, index) => {
-        return (
-            <tr key={article.pageid}>
-                <th scope="row">{index + 1}</th>
-                <td>{numberFormatter.format(article.total_views)}</td>
-                <td>
-                    <a href={article.page} target="_blank" rel="noopener noreferrer">{article.page}</a>
-                </td>
-            </tr>
-        )
-    }) ?? '';
-
-    const articlesTable = (
-        <table className="table">
-            <thead>
-                <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Total Views</th>
-                    <th scope="col">URL</th>
-                </tr>
-            </thead>
-            <tbody>
-                {articlesRows}
-            </tbody>
-        </table>
-    );
-
-    const resultsErrorsItems = results.errors?.map(error => {
-        return (
-            <li key={error.url}>
-                <a href={error.url} target="_blank" rel="noopener noreferrer">{error.url}</a>
-                <span> - </span>
-                {error.message}
-            </li>
-        )
-    }) ?? '';
-
-    const resultsErrorsMessage = (
-        <div className="alert alert-warning">
-            <small>
-                <h6>Wikipedia API Errors</h6>
-
-                <ul>
-                    {resultsErrorsItems}
-                </ul>
-            </small>
-        </div>
-    );
-
-    const emptyResultsMessage = (
-        <h6 className="text-center">
-            No results found during this date range.
-        </h6>
-    );
-
-    const articlesResults = (
-        <div>
-            {resultsErrorsItems.length > 0 && resultsErrorsMessage}
-
-            {articlesRows.length
-                ? articlesTable
-                : emptyResultsMessage}
-        </div>
-    );
-
-    const fetchInfo = (
+    const fetchStatusPanel = (
         <div className={"my-4 text-center alert " + (error !== null ? "alert-danger" : "alert-secondary")}>
-            {error !== null && errorMessage}
+            {error ? FetchErrorMessage({ error, onRetryBackendHost }) : ''}
 
             <small>
                 <strong>Backend API URL: </strong>
@@ -196,13 +116,125 @@ export function Articles({ params, onRetryBackendHost }: {
         </div>
     );
 
+    const articlesResults = (
+        <div>
+            {results.errors ? WikipediaAPIErrors({ errors: results.errors }) : ''}
+
+            {!error && results.data ? ArticlesTable({ articles: results.data }) : ''}
+        </div>
+    );
+
     return (
         <>
-            {!isLoading && fetchInfo}
+            {!isLoading && fetchStatusPanel}
 
             {isLoading
                 ? loadingMessage
                 : articlesResults}
         </>
+    )
+}
+
+
+function FetchErrorMessage({ error, onRetryBackendHost }: {
+    error: FetchError,
+    onRetryBackendHost: () => void,
+}) {
+    const retryButton = (
+        <button className="ms-3 btn btn-secondary" onClick={onRetryBackendHost}>
+            Retry with default server
+        </button>
+    );
+
+    return (
+        <div className="my-1 fs-5">
+            <strong>Error: </strong>
+
+            {error.message}
+
+            {error?.errorType == FetchErrorType.URL && retryButton}
+        </div>
+    );
+}
+
+function WikipediaAPIErrors({ errors }: {
+    errors: WikiAPIError[]
+}) {
+    const resultsErrorsItems = errors.map(error => {
+        return (
+            <li key={error.url}>
+                <a href={error.url} target="_blank" rel="noopener noreferrer">{error.url}</a>
+                <span> - </span>
+                {error.message}
+            </li>
+        )
+    });
+
+    const resultErrorsPanel = (
+        <div className="alert alert-warning">
+            <small>
+                <h6>Wikipedia API Errors</h6>
+
+                <ul>
+                    {resultsErrorsItems}
+                </ul>
+            </small>
+        </div>
+    );
+
+    return (errors.length > 0 ? resultErrorsPanel : '')
+}
+
+
+function ArticlesTable({ articles }: {
+    articles: MostReadArticleData[],
+}) {
+    const rows = articles.map((article, index) => ArticleRow({ article, rowNumber: index + 1 }));
+
+    const table = (
+        <table className="table">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Total Views</th>
+                    <th scope="col">URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    );
+
+    const emptyResultsMessage = (
+        <h6 className="text-center">
+            No results found during this date range.
+        </h6>
+    );
+
+    return (
+        <>
+            {articles.length > 0
+                ? table
+                : emptyResultsMessage}
+        </>
+    );
+}
+
+
+function ArticleRow({ article, rowNumber }: {
+    article: MostReadArticleData,
+    rowNumber: number,
+}) {
+    const numberFormatter = new Intl.NumberFormat();
+
+    return (
+        <tr key={article.pageid}>
+            <th scope="row">{rowNumber}</th>
+            <td>{numberFormatter.format(article.total_views)}</td>
+            <td>
+                <a href={article.page} target="_blank" rel="noopener noreferrer">{article.page}</a>
+            </td>
+        </tr>
     );
 }
