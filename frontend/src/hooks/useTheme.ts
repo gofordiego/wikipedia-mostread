@@ -20,6 +20,7 @@ export function useTheme() {
     return theme;
 }
 
+
 export function toggleTheme(theme: string) {
     const newTheme = (theme == 'light' ? 'dark' : 'light');
     setStoredTheme(newTheme);
@@ -62,7 +63,7 @@ function getSystemTheme(): string {
         : 'dark';
 }
 
-function getStoredTheme() {
+function getStoredTheme(): string | null {
     return localStorage.getItem('theme');
 }
 

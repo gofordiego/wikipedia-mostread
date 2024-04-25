@@ -1,4 +1,4 @@
-import { buildURL } from './utils';
+import { buildURL } from './url';
 
 
 namespace BackendAPI {

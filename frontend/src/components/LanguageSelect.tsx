@@ -1,4 +1,4 @@
-import { WIKIPEDIA_LANGUAGES } from './constants'
+import { WIKIPEDIA_LANGUAGES } from '../utils/constants'
 
 
 type WikipediaLanguage = {

@@ -1,6 +1,6 @@
 
-import BackendAPI from "./backend-api"
-import { useAsyncData } from './useAsyncData'
+import BackendAPI from "../utils/backend-api"
+import { useAsyncData } from '../hooks/useAsyncData'
 
 
 // MARK: - Types

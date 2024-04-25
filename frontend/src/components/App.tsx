@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { ArticlesParams, Articles } from './Articles'
 import DatePicker from './DatePicker'
-import { DEFAULT_BACKEND_HOST, DEFAULT_LANGUAGE_CODE } from './constants'
+import { DEFAULT_BACKEND_HOST, DEFAULT_LANGUAGE_CODE } from '../utils/constants'
 import LanguageSelect from './LanguageSelect'
-import { useTheme, toggleTheme } from './themeStore'
-import darkIcon from './assets/theme-icon-dark.svg'
-import lightIcon from './assets/theme-icon-light.svg'
-import './App.css'
+import { useTheme, toggleTheme } from '../hooks/useTheme'
+import darkIcon from '../assets/theme-icon-dark.svg'
+import lightIcon from '../assets/theme-icon-light.svg'
+import '../styles/App.css'
 
 
 function App() {
@@ -19,7 +19,8 @@ function App() {
   const [languageCode, setLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
   const [startDate, setStartDate] = useState(formattedYesterday);
   const [endDate, setEndDate] = useState(formattedYesterday);
-  const [articlesParams, setArticlesParams] = useState<ArticlesParams>({ backendHost, languageCode, startDate, endDate, lastFetchTime: Date.now() });
+  const [articlesParams, setArticlesParams] =
+    useState<ArticlesParams>({ backendHost, languageCode, startDate, endDate, lastFetchTime: Date.now() });
 
   function handleLanguageChange(selectedLanguageCode: string) {
     setLanguageCode(selectedLanguageCode);
