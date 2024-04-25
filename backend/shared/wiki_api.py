@@ -34,6 +34,8 @@ class WikiAPI:
 
     MAX_REQUESTS_PER_SEC = 100  # Wikipedia API Rate Limit
 
+    MAX_RESPONSE_RESULTS = 5000
+
     DEFAULT_USER_AGENT = "test"
 
     def __init__(
@@ -52,7 +54,7 @@ class WikiAPI:
     # MARK: - Public Functions
 
     async def fetch_most_read_articles(
-        self, lang_code: str, start: str, end: str
+        self, lang_code: str, start: str, end: str, results_limit=MAX_RESPONSE_RESULTS
     ) -> list[dict[str, any]]:
         """Fetches the most read articles from Wikipedia by supported language code and date range.
 
@@ -99,12 +101,14 @@ class WikiAPI:
             if wiki_resp.exception:
                 # Unexpected expection
                 error_responses.append(
-                    {"url": wiki_resp.url, "message": str(wiki_resp.exception)}
+                    self._format_wiki_api_error(wiki_resp.url, str(wiki_resp.exception))
                 )
             elif not wiki_resp.status_ok:
                 # Unexpected status code on API response
                 error_responses.append(
-                    {"url": wiki_resp.url, "message": str(WikipediaResponseError())}
+                    self._format_wiki_api_error(
+                        wiki_resp.url, str(WikipediaResponseError())
+                    )
                 )
             else:
                 # Successful API response
@@ -114,9 +118,20 @@ class WikiAPI:
             successful_featured_content_responses
         )
 
-        return {"data": most_read_articles, "errors": error_responses}
+        if len(most_read_articles) > results_limit:
+            url = ""
+            message = f"Limited response to {results_limit} out of {len(most_read_articles) } results."
+            error_responses.insert(0, self._format_wiki_api_error(url, message))
+
+        return {
+            "data": most_read_articles[:results_limit],
+            "errors": error_responses,
+        }
 
     # MARK: - Private Functions
+
+    def _format_wiki_api_error(self, url: str, message: str) -> dict[str, str]:
+        return {"url": url, "message": message}
 
     def _try_cache_get(self, url: str) -> WikiAPIResponse:
         if isinstance(self.optional_cache, WikiCache):
@@ -310,7 +325,6 @@ class WikiAPI:
 
         # Build a sorted array of article_stats objects:
         # e.g. [{page, total_views, view_history}, ...]
-        # TODO: Maybe establish a total limit like max 1000 articles to return.
         return [
             {**{"pageid": page_id}, **articles_stats[page_id]}
             for page_id in ranked_pageids

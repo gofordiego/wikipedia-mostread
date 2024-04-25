@@ -1,7 +1,13 @@
 
+import { useState } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip as ChartTooltip } from 'recharts';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Tooltip from 'react-bootstrap/Tooltip';
+
 import BackendAPI from "../utils/backend-api"
 import { useAsyncData } from '../hooks/useAsyncData'
 
+import "../styles/Articles.css";
 
 // MARK: - Types
 
@@ -54,7 +60,7 @@ export function Articles({ params, onRetryBackendHost }: {
 
     const fetchStatusPanel = (
         <div className={"my-4 text-center alert " + (error !== null ? "alert-danger" : "alert-secondary")}>
-            {error ? FetchErrorMessage({ error, onRetryBackendHost }) : ''}
+            {error ? <FetchErrorMessage error={error} onRetryBackendHost={onRetryBackendHost} /> : ''}
 
             <small>
                 <strong>Backend API URL: </strong>
@@ -86,9 +92,9 @@ export function Articles({ params, onRetryBackendHost }: {
 
     const articlesResults = (
         <div>
-            {results.errors ? WikipediaAPIErrors({ errors: results.errors }) : ''}
+            {results.errors ? <WikipediaAPIErrors errors={results.errors} /> : ''}
 
-            {!error && results.data ? ArticlesTable({ articles: results.data }) : ''}
+            {!error && results.data ? <ArticlesTable articles={results.data} /> : ''}
         </div>
     );
 
@@ -125,6 +131,7 @@ function FetchErrorMessage({ error, onRetryBackendHost }: {
     );
 }
 
+
 function WikipediaAPIErrors({ errors }: {
     errors: WikiAPIError[]
 }) {
@@ -143,7 +150,7 @@ function WikipediaAPIErrors({ errors }: {
             <small>
                 <h6>Wikipedia API Errors</h6>
 
-                <ul>
+                <ul className="mb-0">
                     {resultsErrorsItems}
                 </ul>
             </small>
@@ -157,7 +164,7 @@ function WikipediaAPIErrors({ errors }: {
 function ArticlesTable({ articles }: {
     articles: MostReadArticleData[],
 }) {
-    const rows = articles.map((article, index) => ArticleRow({ article, rowNumber: index + 1 }));
+    const rows = articles.map((article, index) => <ArticleRow key={article.pageid} article={article} rowNumber={index + 1} />);
 
     const table = (
         <table className="table">
@@ -194,14 +201,73 @@ function ArticleRow({ article, rowNumber }: {
     article: MostReadArticleData,
     rowNumber: number,
 }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+
     const numberFormatter = new Intl.NumberFormat();
 
+    const collapsedChart = (
+        <LineChart width={120} height={30} data={article.view_history} style={{ cursor: "pointer" }}>
+            <Line type="monotone" isAnimationActive={false} dot={false} dataKey="views" stroke="#85ca9d" strokeWidth={2} />
+        </LineChart>
+    );
+
+    const expandedChart = (
+        <div className="mt-3 expanded-chart">
+            <LineChart width={500} height={300} data={article.view_history}
+                margin={{ left: 30 }}>
+                <Line type="monotone" isAnimationActive={false} dot={false} dataKey="views" stroke="#85ca9d" strokeWidth={2} />
+                <XAxis dataKey="date" />
+                <YAxis tickFormatter={tick => numberFormatter.format(tick)} />
+                <ChartTooltip formatter={value => numberFormatter.format(+value)} />
+            </LineChart>
+        </div>
+    );
+
+    const expandButton = (
+        <OverlayTrigger
+            placement="top"
+            overlay={
+                <Tooltip>
+                    Expand
+                </Tooltip>
+            }
+        >
+            <div
+                className="button-expand-views-chart"
+                data-toggle="tooltip" data-placement="top" title="Expand"
+                onClick={() => setIsExpanded(true)}
+            >
+                {collapsedChart}
+            </div>
+        </OverlayTrigger>
+    )
+
+    const collapseButton = (
+        <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsExpanded(false)}
+        >
+            Collapse
+        </button>
+    );
+
     return (
-        <tr key={article.pageid}>
+        <tr>
             <th scope="row">{rowNumber}</th>
-            <td>{numberFormatter.format(article.total_views)}</td>
+            <td className="no-wrap">
+                <div className="d-flex justify-content-around">
+                    <div>
+                        {numberFormatter.format(article.total_views)}
+                    </div>
+
+                    {!isExpanded ? expandButton : collapseButton}
+                </div>
+            </td>
             <td>
                 <a href={article.page} target="_blank" rel="noopener noreferrer">{article.page}</a>
+
+                {isExpanded && expandedChart}
             </td>
         </tr>
     );

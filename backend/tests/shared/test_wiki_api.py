@@ -115,6 +115,24 @@ class WikiAPITests(IsolatedAsyncioTestCase):
         )
         self.assertEqual(results, EXPECTED_MOST_READ_ES_20240219)
 
+    async def test_limit_fetch_most_read_articles_success(self):
+        """Test limit results `fetch_most_read_articles` success."""
+        limit = 1
+        no_cache_wiki_api = wiki_api.WikiAPI()
+        results = await no_cache_wiki_api.fetch_most_read_articles(
+            lang_code="es", start="2024-02-19", end="2024-02-19", results_limit=limit
+        )
+        expected_results = {
+            "data": [EXPECTED_MOST_READ_ES_20240219.get("data")[0]],
+            "errors": [
+                {
+                    "url": "",
+                    "message": "Limited response to 1 out of 45 results.",
+                }
+            ],
+        }
+        self.assertEqual(results, expected_results)
+
     async def test_fetch_most_read_articles_raised_exceptions(self):
         """Test `fetch_most_read_articles` raised exceptions."""
 

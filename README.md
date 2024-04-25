@@ -108,9 +108,11 @@ Note that future cache reduction could be achieved by selectively storing specif
 
 #### Frontend
 
-At the moment the frontend app is a simple user-friendly interface to our backend app. In the future, I might experiment with basic charts and querying directly Wikimedia API bypassing our backend app aggregation and caching.
+At the moment the frontend app is a simple user-friendly interface to our backend app. In the future, I might experiment querying directly Wikimedia API bypassing our backend app aggregation and caching.
 
-![Screenshot 1](./assets/screenshot-1.png)
+![Screenshot light-mode](./assets/screenshot-light-1.png)
+
+![Screenshot dark-mode](./assets/screenshot-dark-1.png)
 
 
 ## Troubleshooting

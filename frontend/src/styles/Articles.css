@@ -1,0 +1,12 @@
+.button-expand-views-chart {
+    background-color: #cccccc00;
+    transition: background-color 0.4s ease-in-out;
+}
+    .button-expand-views-chart:hover {
+        background-color: #cccccc66;
+
+    }
+
+.expanded-chart .recharts-tooltip-label {
+    color: #000
+}
