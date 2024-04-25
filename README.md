@@ -60,6 +60,8 @@ npm run dev
 ##### Frontend
 - [NPM](https://www.npmjs.com/) - JavaScript package manager
 - [Vite](https://vitejs.dev/guide/) - React + TypeScript build tool
+- [React Bootstrap](https://react-bootstrap.netlify.app/) - [Bootstrap](https://getbootstrap.com/) components
+- [Recharts](https://recharts.org/) - Charting library built on React components
 
 ## Usage
 
@@ -87,7 +89,7 @@ http://127.0.0.1:8080/most_read_articles?lang_code=en&start=2024-02-28&end=2024-
         }
       ]
     },
-    ...
+
   ],
   "errors": []
 }
