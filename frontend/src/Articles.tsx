@@ -3,7 +3,7 @@ import BackendAPI from "./backend-api"
 import { useAsyncData } from './useAsyncData'
 
 
-// MostReadArticlesResults types
+// MARK: - Types
 
 type ArticleViewHistory = {
     date: string;
@@ -22,41 +22,7 @@ type WikiAPIError = {
     message: number;
 };
 
-type MostReadArticlesResults = {
-    data?: MostReadArticleData[];
-    errors?: WikiAPIError[];
-    request_error?: string;
-};
-
-
-// FetchError
-
-enum FetchErrorType {
-    URL,  // Malformed URL
-    Response,  // Non-OK fetch response
-    Request,  // Invalid API params (MostReadArticlesResponse.request_error)
-}
-
-type FetchError = {
-    errorType: FetchErrorType,
-    message: string,
-};
-
-function computeFetchErrorType(url: string | undefined, responseError: string, results: MostReadArticlesResults): FetchError | null {
-    let errorType: FetchErrorType | null = null
-    let message = ""
-    if (url === undefined) {
-        errorType = FetchErrorType.URL;
-        message = "Invalid Backend API Server"
-    } else if (results.request_error) {
-        errorType = FetchErrorType.Request;
-        message = results.request_error
-    } else if (responseError) {
-        errorType = FetchErrorType.Response;
-        message = responseError
-    }
-    return errorType !== null ? { errorType, message } : null
-}
+type MostReadArticlesResults = BackendAPI.FetchResults<MostReadArticleData, WikiAPIError>
 
 
 export type ArticlesParams = {
@@ -67,6 +33,8 @@ export type ArticlesParams = {
     lastFetchTime: number;  // Used to allow component refresh for the URI parameters.
 };
 
+
+// MARK: - Components
 
 export function Articles({ params, onRetryBackendHost }: {
     params: ArticlesParams,
@@ -82,7 +50,7 @@ export function Articles({ params, onRetryBackendHost }: {
 
     const [results, responseError, isLoading] = useAsyncData(url ?? '', initialResults, params.lastFetchTime);
 
-    const error = computeFetchErrorType(url, responseError, results);
+    const error = BackendAPI.computeFetchErrorType(url, responseError, results);
 
     const fetchStatusPanel = (
         <div className={"my-4 text-center alert " + (error !== null ? "alert-danger" : "alert-secondary")}>
@@ -137,7 +105,7 @@ export function Articles({ params, onRetryBackendHost }: {
 
 
 function FetchErrorMessage({ error, onRetryBackendHost }: {
-    error: FetchError,
+    error: BackendAPI.FetchError,
     onRetryBackendHost: () => void,
 }) {
     const retryButton = (
@@ -152,7 +120,7 @@ function FetchErrorMessage({ error, onRetryBackendHost }: {
 
             {error.message}
 
-            {error?.errorType == FetchErrorType.URL && retryButton}
+            {error?.errorType == BackendAPI.FetchErrorType.URL && retryButton}
         </div>
     );
 }

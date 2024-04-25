@@ -1,16 +1,16 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { ArticlesParams, Articles } from './Articles'
 import DatePicker from './DatePicker'
 import { DEFAULT_BACKEND_HOST, DEFAULT_LANGUAGE_CODE } from './constants'
 import LanguageSelect from './LanguageSelect'
-import { themeStore, updateBootstrapTheme } from './themeStore'
+import { useTheme, toggleTheme } from './themeStore'
 import darkIcon from './assets/theme-icon-dark.svg'
 import lightIcon from './assets/theme-icon-light.svg'
 import './App.css'
 
 
 function App() {
-  const theme = useSyncExternalStore(themeStore.subscribe, themeStore.getSnapshot);
+  const theme = useTheme();
 
   const yesterday = new Date(Date.now() - (1000 * 60 * 60 * 24));
   const formattedYesterday = yesterday.toISOString().slice(0, 10);
@@ -44,11 +44,6 @@ function App() {
     fetchMostReadArticles(DEFAULT_BACKEND_HOST);
   }
 
-  useEffect(() => {
-    // Set the system or user them on App load.
-    updateBootstrapTheme(theme)
-  }, []);
-
   return (
     <>
       <h3 className="my-4 lh-lg text-center">
@@ -56,7 +51,7 @@ function App() {
 
         <img className="theme-icon"
           src={theme == 'dark' ? darkIcon : lightIcon}
-          onClick={() => themeStore.toggleTheme()} />
+          onClick={() => toggleTheme(theme)} />
       </h3>
 
       <div className="app-controllers text-center lh-lg fs-6">

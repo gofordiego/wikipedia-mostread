@@ -1,40 +1,59 @@
-type Listener = () => void
+import { useEffect, useSyncExternalStore } from "react";
 
-let theme = getTheme();
+
+type Listener = () => void
 
 let listeners: Listener[] = [];
 
-export const themeStore = {
-    toggleTheme() {
-        theme = (theme == 'light' ? 'dark' : 'light');
-        storeTheme(theme);
-        emitChange();
-    },
-    subscribe(listener: Listener) {
-        listeners = [...listeners, listener];
+
+export function useTheme() {
+    const theme = useSyncExternalStore(subscribe, getTheme);
+
+    useEffect(() => {
+        updateBootstrapTheme(theme);
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', handleSystemThemeChange)
         return () => {
-            listeners = listeners.filter(l => l !== listener);
+            window.matchMedia('(prefers-color-scheme: light)').removeEventListener('change', handleSystemThemeChange)
         };
-    },
-    getSnapshot() {
+    }, []);
+
+    return theme;
+}
+
+export function toggleTheme(theme: string) {
+    const newTheme = (theme == 'light' ? 'dark' : 'light');
+    setStoredTheme(newTheme);
+    emitChange(newTheme);
+}
+
+
+function updateBootstrapTheme(theme: string) {
+    if (theme !== null) {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+    }
+}
+
+function subscribe(listener: Listener) {
+    listeners = [...listeners, listener];
+    return () => {
+        listeners = listeners.filter(l => l !== listener);
+    };
+}
+
+function getTheme(): string {
+    const theme = getStoredTheme();
+    if (theme !== null) {
         return theme;
     }
-};
+    return getSystemTheme();
+}
 
-function emitChange() {
+function emitChange(theme: string) {
     updateBootstrapTheme(theme);
 
     for (let listener of listeners) {
         listener();
     }
-}
-
-function getTheme() {
-    const theme = fetchTheme();
-    if (theme !== null) {
-        return theme;
-    }
-    return getSystemTheme();
 }
 
 function getSystemTheme(): string {
@@ -43,24 +62,18 @@ function getSystemTheme(): string {
         : 'dark';
 }
 
-function fetchTheme() {
+function getStoredTheme() {
     return localStorage.getItem('theme');
 }
 
-function storeTheme(theme: string) {
+function setStoredTheme(theme: string) {
     localStorage.setItem('theme', theme);
 }
 
-export function updateBootstrapTheme(theme: string) {
-    if (theme !== null) {
-        document.documentElement.setAttribute('data-bs-theme', theme);
+function handleSystemThemeChange() {
+    const storedTheme = getStoredTheme();
+    if (storedTheme === null) {
+        const theme = getSystemTheme();
+        emitChange(theme);
     }
 }
-
-window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    const storedTheme = fetchTheme()
-    if (storedTheme === null) {
-        theme = getSystemTheme();
-        emitChange();
-    }
-});
