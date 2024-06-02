@@ -172,7 +172,7 @@ class WikiAPI:
 
         Returns:
             List of Feed API Featured Content responses.
-              e.g. `[SafeResponse(url, response, exception), ... ]`
+              e.g. `[WikiAPIResponse(url, response, exception), ... ]`
         """
 
         api_urls = self._build_feed_api_featured_content_urls(
