@@ -24,8 +24,8 @@ This project utilizes Wikimedia's Feed API, specifically the [Featured Content e
 ```sh
 # Prepare Python environment
 cd backend/
-python3.12 -m venv env
-source env/bin/activate
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # Prepare SQLite database
